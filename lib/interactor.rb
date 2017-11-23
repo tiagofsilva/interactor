@@ -46,8 +46,8 @@ module Interactor
     #
     # Returns the resulting Interactor::Context after manipulation by the
     #   interactor.
-    def call(context = {})
-      new(context).tap(&:run).context
+    def call(validator: nil, **context)
+      new(context, validator).tap(&:run).context
     end
 
     # Public: Invoke an Interactor. The "call!" method behaves identically to
@@ -72,8 +72,8 @@ module Interactor
     # Returns the resulting Interactor::Context after manipulation by the
     #   interactor.
     # Raises Interactor::Failure if the context is failed.
-    def call!(context = {})
-      new(context).tap(&:run!).context
+    def call!(validator: nil, **context)
+      new(context, validator).tap(&:run!).context
     end
   end
 
@@ -90,8 +90,9 @@ module Interactor
   #
   #   MyInteractor.new
   #   # => #<MyInteractor @context=#<Interactor::Context>>
-  def initialize(context = {})
-    @context = Context.build(context)
+  def initialize(context, validator=nil)
+    @context = Context.build(context, validator)
+    puts 'CONTEXT FAILED!' if @context.failed?
   end
 
   # Internal: Invoke an interactor instance along with all defined hooks. The
@@ -143,9 +144,9 @@ module Interactor
       call
       context.called!(self)
     end
-  rescue
-    context.rollback!
-    raise
+    rescue
+      context.rollback!
+      raise
   end
 
   # Public: Invoke an Interactor instance without any hooks, tracking, or

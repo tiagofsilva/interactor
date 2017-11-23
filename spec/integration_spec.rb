@@ -26,6 +26,7 @@ describe "Integration" do
   #  │   └─ interactor4c
   #  └─ interactor5
 
+
   let(:organizer) {
     build_organizer(organize: [organizer2, interactor3, organizer4, interactor5]) do
       around do |interactor|
@@ -288,7 +289,48 @@ describe "Integration" do
     end
   }
 
+  let(:validator) {
+    build_interactor do
+      around do |interactor|
+        context.steps << :validator_around_before2a
+        interactor.call
+        context.steps << :validator_around_after2a
+      end
+
+      before do
+        context.steps << :validator_before2a
+      end
+
+      after do
+        context.steps << :validator_after2a
+      end
+
+      def call
+        context.steps << :validator_call2a
+      end
+
+      def rollback
+        context.steps << :validator_rollback2a
+      end
+    end
+  }
+
+  let(:validator_context) { Interactor::Context.new(steps: [], validator: validator) }
   let(:context) { Interactor::Context.new(steps: []) }
+
+  context 'testing validator' do
+    it "calls and runs hooks in the proper sequence" do
+      expect {
+        interactor5.call(context)
+      }.to change {
+        context.steps
+      }.from([]).to([
+          :around_before5, :before5, :call5, :after5, :around_after5,
+          :after, :around_after
+      ])
+    end
+  end
+
 
   context "when successful" do
     it "calls and runs hooks in the proper sequence" do
