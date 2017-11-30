@@ -52,11 +52,8 @@ module Interactor
     #   # => 2170969340
     #
     # Returns the Interactor::Context.
-    def self.build(context = {}, validator)
-      _context = self === context ? context : new(context)
-      _context.tap do
-        validator&.call(_context)
-      end
+    def self.build(context = {})
+      self === context ? context : new(context)
     end
 
     # Public: Whether the Interactor::Context is successful. By default, a new
@@ -179,10 +176,6 @@ module Interactor
     # Returns an Array of Interactor instances or an empty Array.
     def _called
       @called ||= []
-    end
-
-    def validate!
-      
     end
   end
 end
