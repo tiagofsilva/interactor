@@ -263,74 +263,90 @@ describe "Integration" do
     end
   }
 
+  def build_interactor(&block)
+    interactor = Class.new.send(:include, Interactor)
+    interactor.tap do |i|
+      i.class_eval(&block) if block
+    end
+  end
+
   let(:interactor5) {
+    build_interactor
+  }
+
+  let(:interactor6) {
     build_interactor do
       around do |interactor|
-        context.steps << :around_before5
+        context.steps << :around_before6
         interactor.call
-        context.steps << :around_after5
+        context.steps << :around_after6
       end
 
       before do
-        context.steps << :before5
+        context.steps << :before6
       end
 
       after do
-        context.steps << :after5
+        context.steps << :after6
       end
 
       def call
-        context.steps << :call5
+        context.steps << :call6
       end
 
       def rollback
-        context.steps << :rollback5
+        context.steps << :rollback6
       end
+    end
+  }
+
+  let(:failure_validator) {
+    build_interactor do
+
+      def call
+        context.fail!
+      end
+
     end
   }
 
   let(:validator) {
     build_interactor do
-      around do |interactor|
-        context.steps << :validator_around_before2a
-        interactor.call
-        context.steps << :validator_around_after2a
-      end
-
-      before do
-        context.steps << :validator_before2a
-      end
-
-      after do
-        context.steps << :validator_after2a
-      end
 
       def call
-        context.steps << :validator_call2a
+        context.steps << :validated
       end
 
-      def rollback
-        context.steps << :validator_rollback2a
-      end
     end
   }
 
-  let(:validator_context) { Interactor::Context.new(steps: [], validator: validator) }
-  let(:context) { Interactor::Context.new(steps: []) }
+  context 'passing a validator' do
+    context 'that points failure' do
+      it "fails context" do
+        result = interactor5.call(validator: failure_validator, steps: [])
+        expect(result).to be_failure
+      end
 
-  context 'testing validator' do
-    it "calls and runs hooks in the proper sequence" do
-      expect {
-        interactor5.call(context)
-      }.to change {
-        context.steps
-      }.from([]).to([
-          :around_before5, :before5, :call5, :after5, :around_after5,
-          :after, :around_after
-      ])
+      it 'calls and run hooks in the proper sequence'
+    end
+
+    context 'that does not point failure' do
+      it "follows flow naturally" do
+        result = interactor5.call(validator: validator, steps: [])
+        expect(result).to be_success
+        expect(result.steps).to eq [:validated]
+      end
+
+      it 'calls and run hooks in the proper sequence' do
+        result = interactor6.call(validator: validator, steps: [])
+        expect(result.steps).to eq []
+      end
     end
   end
 
+
+
+  let(:context) { Interactor::Context.new(steps: []) }
 
   context "when successful" do
     it "calls and runs hooks in the proper sequence" do

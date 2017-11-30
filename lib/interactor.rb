@@ -47,7 +47,8 @@ module Interactor
     # Returns the resulting Interactor::Context after manipulation by the
     #   interactor.
     def call(validator: nil, **context)
-      new(context, validator).tap(&:run).context
+      _context = validator&.call(context) || context
+      new(_context, validator).tap(&:run).context
     end
 
     # Public: Invoke an Interactor. The "call!" method behaves identically to
@@ -73,7 +74,8 @@ module Interactor
     #   interactor.
     # Raises Interactor::Failure if the context is failed.
     def call!(validator: nil, **context)
-      new(context, validator).tap(&:run!).context
+      _context = validator&.call(context) || context
+      new(_context, validator).tap(&:run!).context
     end
   end
 
@@ -91,8 +93,7 @@ module Interactor
   #   MyInteractor.new
   #   # => #<MyInteractor @context=#<Interactor::Context>>
   def initialize(context, validator=nil)
-    @context = Context.build(context, validator)
-    puts 'CONTEXT FAILED!' if @context.failed?
+    @context = Context.build(context)
   end
 
   # Internal: Invoke an interactor instance along with all defined hooks. The
