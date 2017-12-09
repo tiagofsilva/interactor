@@ -29,6 +29,13 @@ module Interactor
 
   # Internal: Interactor class methods.
   module ClassMethods
+
+    # Public: Declare the Validator class to be used once before going through
+    # all interactors in the chain.
+    def with_validator(validator_class=nil)
+      @validator = validator_class
+    end
+
     # Public: Invoke an Interactor. This is the primary public API method to an
     # interactor.
     #
@@ -46,9 +53,9 @@ module Interactor
     #
     # Returns the resulting Interactor::Context after manipulation by the
     #   interactor.
-    def call(validator: nil, **context)
-      _context = validator&.call(context) || context
-      new(_context, validator).tap(&:run).context
+    def call(context={})
+      _context = @validator&.call(context) || context
+      new(_context).tap(&:run).context
     end
 
     # Public: Invoke an Interactor. The "call!" method behaves identically to
@@ -73,9 +80,9 @@ module Interactor
     # Returns the resulting Interactor::Context after manipulation by the
     #   interactor.
     # Raises Interactor::Failure if the context is failed.
-    def call!(validator: nil, **context)
-      _context = validator&.call(context) || context
-      new(_context, validator).tap(&:run!).context
+    def call!(context={})
+      _context = @validator&.call!(context) || context
+      new(_context).tap(&:run!).context
     end
   end
 
@@ -92,7 +99,7 @@ module Interactor
   #
   #   MyInteractor.new
   #   # => #<MyInteractor @context=#<Interactor::Context>>
-  def initialize(context, validator=nil)
+  def initialize(context)
     @context = Context.build(context)
   end
 

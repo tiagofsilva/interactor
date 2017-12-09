@@ -271,80 +271,198 @@ describe "Integration" do
   end
 
   let(:interactor5) {
-    build_interactor
-  }
-
-  let(:interactor6) {
     build_interactor do
+
       around do |interactor|
-        context.steps << :around_before6
+        context.steps << :around_before5
         interactor.call
-        context.steps << :around_after6
+        context.steps << :around_after5
       end
 
       before do
-        context.steps << :before6
+        context.steps << :before5
       end
 
       after do
-        context.steps << :after6
+        context.steps << :after5
       end
 
       def call
-        context.steps << :call6
+        context.steps << :call5
       end
 
       def rollback
-        context.steps << :rollback6
+        context.steps << :rollback5
       end
-    end
-  }
-
-  let(:failure_validator) {
-    build_interactor do
-
-      def call
-        context.fail!
-      end
-
-    end
-  }
-
-  let(:validator) {
-    build_interactor do
-
-      def call
-        context.steps << :validated
-      end
-
     end
   }
 
   context 'passing a validator' do
-    context 'that points failure' do
-      it "fails context" do
-        result = interactor5.call(validator: failure_validator, steps: [])
+
+    let(:failure_validator) {
+      build_interactor do
+
+        def call
+          context.fail!
+        end
+
+      end
+    }
+
+    let(:success_validator) {
+      build_interactor do
+
+        def call
+          context.steps << :validated
+        end
+
+      end
+    }
+
+    let(:interactor6) {
+      validator_class = failure_validator
+      build_interactor do
+
+        around do |interactor|
+          context.steps << :around_before6
+          interactor.call
+          context.steps << :around_after6
+        end
+
+        before do
+          context.steps << :before6
+        end
+
+        after do
+          context.steps << :after6
+        end
+
+        with_validator validator_class
+
+        def call
+          context.steps << :call6
+        end
+
+        def rollback
+          context.steps << :rollback6
+        end
+      end
+    }
+
+    let(:interactor7) {
+      validator_class = success_validator
+      build_interactor do
+
+        around do |interactor|
+          context.steps << :around_before7
+          interactor.call
+          context.steps << :around_after7
+        end
+
+        before do
+          context.steps << :before7
+        end
+
+        after do
+          context.steps << :after7
+        end
+
+        with_validator validator_class
+
+        def call
+          context.steps << :call7
+        end
+
+        def rollback
+          context.steps << :rollback7
+        end
+      end
+    }
+
+    let(:organizer_failure) {
+      build_organizer(organize: [interactor7, interactor6]) do
+        around do |interactor|
+          context.steps << :around_before
+          interactor.call
+          context.steps << :around_after
+        end
+
+        before do
+          context.steps << :before
+        end
+
+        after do
+          context.steps << :after
+        end
+      end
+    }
+
+    let(:organizer_failure2) {
+      build_organizer(organize: [interactor6, interactor7]) do
+        around do |interactor|
+          context.steps << :around_before
+          interactor.call
+          context.steps << :around_after
+        end
+
+        before do
+          context.steps << :before
+        end
+
+        after do
+          context.steps << :after
+        end
+      end
+    }
+
+    context 'to an organizer' do
+      context 'that invalidates context late in the chain' do
+        it 'fails context and rolls back previous interactors' do
+          result = organizer_failure.call(steps: [])
+          
+          expect(result.steps).to eq(
+            [:around_before, :before, # organizer
+              :validated, # success_validator
+              :around_before7, :before7, :call7, :after7, :around_after7, # interactor7
+              :rollback7 # failure_validator
+            ])
+        end
+      end
+
+      context 'that invalidates context early in the chain' do
+        it 'aborts' do
+          result = organizer_failure2.call(steps: [])
+          
+          expect(result.steps).to eq [:around_before, :before]
+        end
+      end
+    end
+
+    context 'that invalidates context' do
+      it "fails context on main interactor" do
+        result = interactor6.call(steps: [])
+
         expect(result).to be_failure
       end
 
-      it 'calls and run hooks in the proper sequence'
+      it 'calls and run hooks in the proper sequence' do
+        correct_steps = [:around_before6, :before6,
+          :call6, :after6, :around_after6]
+        result = interactor6.call(steps: [])
+        
+        expect(result.steps).to eq correct_steps
+      end
     end
 
-    context 'that does not point failure' do
-      it "follows flow naturally" do
-        result = interactor5.call(validator: validator, steps: [])
-        expect(result).to be_success
-        expect(result.steps).to eq [:validated]
-      end
-
+    context 'that does not invalidate context' do
       it 'calls and run hooks in the proper sequence' do
-        result = interactor6.call(validator: validator, steps: [])
-        expect(result.steps).to eq []
+        correct_steps = [:validated, :around_before7, :before7,
+          :call7, :after7, :around_after7]
+        result = interactor7.call(steps: [])
+        expect(result.steps).to eq correct_steps
       end
     end
   end
-
-
 
   let(:context) { Interactor::Context.new(steps: []) }
 
