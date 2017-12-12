@@ -26,7 +26,6 @@ describe "Integration" do
   #  │   └─ interactor4c
   #  └─ interactor5
 
-
   let(:organizer) {
     build_organizer(organize: [organizer2, interactor3, organizer4, interactor5]) do
       around do |interactor|
@@ -263,16 +262,8 @@ describe "Integration" do
     end
   }
 
-  def build_interactor(&block)
-    interactor = Class.new.send(:include, Interactor)
-    interactor.tap do |i|
-      i.class_eval(&block) if block
-    end
-  end
-
   let(:interactor5) {
     build_interactor do
-
       around do |interactor|
         context.steps << :around_before5
         interactor.call
@@ -311,17 +302,17 @@ describe "Integration" do
 
     let(:success_validator) {
       build_interactor do
-
         def call
           context.steps << :validated
         end
-
       end
     }
 
     let(:interactor6) {
       validator_class = failure_validator
       build_interactor do
+
+        with_validator validator_class
 
         around do |interactor|
           context.steps << :around_before6
@@ -337,8 +328,6 @@ describe "Integration" do
           context.steps << :after6
         end
 
-        with_validator validator_class
-
         def call
           context.steps << :call6
         end
@@ -353,6 +342,8 @@ describe "Integration" do
       validator_class = success_validator
       build_interactor do
 
+        with_validator validator_class
+
         around do |interactor|
           context.steps << :around_before7
           interactor.call
@@ -366,8 +357,6 @@ describe "Integration" do
         after do
           context.steps << :after7
         end
-
-        with_validator validator_class
 
         def call
           context.steps << :call7
@@ -399,6 +388,7 @@ describe "Integration" do
 
     let(:organizer_failure2) {
       build_organizer(organize: [interactor6, interactor7]) do
+        
         around do |interactor|
           context.steps << :around_before
           interactor.call
@@ -436,6 +426,47 @@ describe "Integration" do
           expect(result.steps).to eq [:around_before, :before]
         end
       end
+
+      context 'that calls another organizer and invalidates context late' do
+        let(:organizer_failure3) {
+          build_organizer(organize: [organizer2, interactor3, organizer4, interactor6]) do
+            
+            around do |interactor|
+              context.steps << :around_before
+              interactor.call
+              context.steps << :around_after
+            end
+
+            before do
+              context.steps << :before
+            end
+
+            after do
+              context.steps << :after
+            end
+          end
+        }
+
+        it "rolls back successfully called interactors and the failed interactor" do
+          result = organizer_failure3.call(steps: [])
+        
+          expect(result.steps).to eq([
+            :around_before, :before, # organizer_failure3
+            :around_before2, :before2, #organizer2
+            :around_before2a, :before2a, :call2a, :after2a, :around_after2a, # interactor2a
+            :around_before2b, :before2b, :call2b, :after2b, :around_after2b, # interactor2b
+            :around_before2c, :before2c, :call2c, :after2c, :around_after2c, # interactor2c,
+            :after2, :around_after2, # organizer2
+            :around_before3, :before3, :call3, :after3, :around_after3, # interactor3
+            :around_before4, :before4, # organizer4
+            :around_before4a, :before4a, :call4a, :after4a, :around_after4a, # interactor4a
+            :around_before4b, :before4b, :call4b, :after4b, :around_after4b, # interactor4b
+            :around_before4c, :before4c, :call4c, :after4c, :around_after4c, # interactor4c,
+            :after4, :around_after4, # organizer4
+            :rollback4c, :rollback4b, :rollback4a, :rollback3, :rollback2c, :rollback2b, :rollback2a # interactor6 (fails)
+            ])  
+        end
+      end
     end
 
     context 'that invalidates context' do
@@ -459,6 +490,7 @@ describe "Integration" do
         correct_steps = [:validated, :around_before7, :before7,
           :call7, :after7, :around_after7]
         result = interactor7.call(steps: [])
+
         expect(result.steps).to eq correct_steps
       end
     end
