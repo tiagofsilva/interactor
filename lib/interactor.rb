@@ -31,7 +31,7 @@ module Interactor
   module ClassMethods
 
     # Public: Declare the Validator class to be used once before going through
-    # all interactors in the chain.
+    # all interactors and its hooks in the chain.
     def with_validator(validator_class=nil)
       @validator = validator_class
     end
