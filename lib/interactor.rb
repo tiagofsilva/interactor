@@ -99,7 +99,7 @@ module Interactor
   #
   #   MyInteractor.new
   #   # => #<MyInteractor @context=#<Interactor::Context>>
-  def initialize(context)
+  def initialize(context={})
     @context = Context.build(context)
   end
 
